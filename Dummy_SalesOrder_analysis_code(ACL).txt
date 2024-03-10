@@ -1,0 +1,223 @@
+comment 
+EKKO_EKPO_EKET 
+(EKET_EBELN EKET_EBELP EKET_WEMNG EKET_BANFN EKET_J_3AUANR EKET_J_3AUPOS EKET_J_3ANETW EKPO_EBELN EKPO_EBELP EKPO_LOEKZ EKPO_MATNR EKPO_MENGE EKPO_REPOS EKKO_AEDAT EKKO_ERNAM EKKO_LIFNR EKKO_WAERS EKKO_FRGSX EKKO_FRGKE EKKO_FRGZU)
+LFA1_LFB1
+(LFA1_LIFNR LFA1_NAME1 LFB1_BUKRS)
+VBAK_VBAP_VBKD
+(VBAK_VBELN VBAP_ZZCUST_DEPT VBKD_KDGRP)
+TWEW_ZCUST_DEPT_DATA
+(Select ALL)
+
+OPEN EKKO_EKPO_EKET
+extract record if EKPO_LOEKZ <> "L" to EKKO_EKPO_EKET_A OPEN
+
+COMMENT
+removing line item deletions
+
+extract record if EKPO_LOEKZ <> "S" to EKKO_EKPO_EKET_B OPEN 
+
+COMMENT
+removing block LINE
+
+extract record if EKPO_MATKL <>  "SURCHRG" to EKKO_EKPO_EKET_C OPEN  
+
+extract record if EKPO_REPOS <> "" to EKKO_EKPO_EKET_D 
+
+COMMENT
+removing FOC LI
+
+OPEN VBAK_VBAP_VBKD
+summarize on VBAK_ERDAT VBAP_VBELN VBAP_POSNR VBAP_NETWR VBAP_ZZCUST_DEPT VBKD_KDGRP to VBAK_VBAP_VBKD_A presort   
+
+COMMENT
+removing duplciate LI
+
+OPEN T151T
+index on T151T_KDGRP to GTS
+OPEN VBAK_VBAP_VBKD_A
+define relation VBKD_KDGRP with T151T index GTS
+
+extract fields VBAK_ERDAT VBAP_VBELN VBAP_POSNR VBAP_NETWR VBAP_ZZCUST_DEPT VBKD_KDGRP T151T.T151T_KTEXT to VBAK_VBAP_VBKD_B
+
+comment
+adding customer group to SO 
+
+OPEN ZCUST_DEPT_DATA
+index on ZCUST_DEPT_DATA_ZCUST_DEPT to JES
+OPEN VBAK_VBAP_VBKD_B
+define relation VBAP_ZZCUST_DEPT with ZCUST_DEPT_DATA index JES
+
+extract fields VBAK_ERDAT VBAP_VBELN VBAP_POSNR VBAP_NETWR VBAP_ZZCUST_DEPT VBKD_KDGRP T151T_KTEXT ZCUST_DEPT_DATA.ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to VBAK_VBAP_VBKD_C   
+
+comment 
+adding customer dep to SO
+
+OPEN VBAK_VBAP_VBKD_C
+delete field SO_LI OK
+define field SO_LI computed VBAP_VBELN+VBAP_POSNR
+index on SO_LI to CDE
+OPEN EKKO_EKPO_EKET_D
+delete field SO OK
+define field SO computed substr(EKET_J_3AUANR,1,10)
+delete field SOLI OK
+define field SOLI computed SO+EKET_J_3AUPOS
+define relation SOLI with VBAK_VBAP_VBKD_C index CDE
+extract record VBAK_VBAP_VBKD_C.VBAK_ERDAT EKPO_MTART EKPO_WERKS EKKO_EKGRP EKET_EBELN EKPO_MTART EKET_EBELP EKET_WEMNG EKET_BANFN SO EKET_J_3AUANR EKET_J_3AUPOS SOLI EKET_J_3ANETW EKPO_MATNR EKPO_MENGE EKKO_AEDAT EKKO_ERNAM EKKO_LIFNR EKKO_WAERS EKKO_FRGSX EKKO_FRGKE EKKO_FRGZU VBAK_VBAP_VBKD_C.T151T_KTEXT VBAK_VBAP_VBKD_C.ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to EKKO_EKPO_EKET_E 
+
+COMMENT
+adding customer to PO 
+
+OPEN LFA1_LFB1
+summarize on LFA1_LIFNR LFA1_NAME1 to LFA1_LFB1_A presort 
+
+COMMENT
+removing dupliciate LI
+
+OPEN LFA1_LFB1_A
+index on LFA1_LIFNR to EFG
+OPEN EKKO_EKPO_EKET_E
+define relation EKKO_LIFNR with LFA1_LFB1_A index EFG
+extract record VBAK_ERDAT EKPO_MTART EKET_EBELN EKPO_WERKS EKET_EBELP EKKO_EKGRP EKPO_MTART EKET_WEMNG EKET_BANFN EKET_J_3AUANR SO EKET_J_3AUPOS SOLI EKET_J_3ANETW EKPO_MATNR EKPO_MENGE EKKO_AEDAT EKKO_ERNAM EKKO_LIFNR LFA1_LFB1_A.LFA1_NAME1 EKKO_WAERS EKKO_FRGSX EKKO_FRGKE EKKO_FRGZU T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to EKKO_EKPO_EKET_F OPEN 
+
+COMMENT
+Adding vendor name to PO
+
+extract record if EKET_J_3AUANR <> "" to EKKO_EKPO_EKET_G OPEN 
+delete field PO_Series OK
+define field PO_Series computed substr(EKET_EBELN,1,2)
+extract record if PO_Series = "43" OR PO_Series = "44"  OR PO_Series = "45" to EKKO_EKPO_EKET_H
+
+COMMENT
+taking only MRP orders
+
+OPEN Dummy_Liability_SO
+delete field SO OK
+define field SO computed substr(SALES_ORDER,1,10)
+extract record SO SO_TYPE to Dummy_Liability_SO_A OPEN 
+OPEN Dummy_Liability_SO_A
+index on SO to QEL
+OPEN EKKO_EKPO_EKET_H
+define relation SO with Dummy_Liability_SO_A index QEL
+extract fields VBAK_ERDAT EKPO_MTART PO_Series EKPO_WERKS EKKO_EKGRP Dummy_Liability_SO_A.SO_TYPE SO EKPO_MTART SOLI EKET_EBELN EKET_EBELP EKET_WEMNG EKET_BANFN EKET_J_3AUANR EKET_J_3AUPOS EKET_J_3ANETW EKPO_MATNR EKPO_MENGE EKKO_AEDAT EKKO_ERNAM EKKO_LIFNR LFA1_NAME1 EKKO_WAERS EKKO_FRGSX EKKO_FRGKE EKKO_FRGZU T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to EKKO_EKPO_EKET_I OPEN
+
+COMMENT
+adding SO_type to PO (Dummy/Liabilty)
+
+
+extract record if EKET_EBELN <> "4500828758" to EKKO_EKPO_EKET_J OPEN
+extract record if EKET_EBELN <> "4500877944" to EKKO_EKPO_EKET_K OPEN
+extract record if EKET_EBELN <> "4500765490" to EKKO_EKPO_EKET_L OPEN 
+extract record if EKET_EBELN <> "4500816982" to EKKO_EKPO_EKET_M OPEN 
+
+Delete FIELD USD_Value OK 
+Define FIELD USD_Value computed 
+
+EKET_J_3ANETW*0.012 if EKKO_WAERS = "BDT" 
+EKET_J_3ANETW*1.08 if EKKO_WAERS = "EUR" 
+EKET_J_3ANETW*1.24 if EKKO_WAERS = "GBP" 
+EKET_J_3ANETW*0.000067 if EKKO_WAERS = "IDR" 
+EKET_J_3ANETW*0.013 if EKKO_WAERS = "INR"  
+EKET_J_3ANETW*0.0054 if EKKO_WAERS = "LKR"  
+EKET_J_3ANETW*0.13 if EKKO_WAERS = "HKD"
+EKET_J_3ANETW if EKKO_WAERS = "USD"  
+0.00000 
+
+extract record VBAK_ERDAT EKPO_MTART EKPO_WERKS PO_Series SO EKKO_EKGRP SO_TYPE EKPO_MTART SOLI EKET_EBELN EKET_EBELP EKET_WEMNG EKET_BANFN EKET_J_3AUANR EKET_J_3AUPOS EKET_J_3ANETW USD_Value EKPO_MATNR EKPO_MENGE EKKO_AEDAT EKKO_ERNAM EKKO_LIFNR LFA1_NAME1 EKKO_WAERS EKKO_FRGSX EKKO_FRGKE EKKO_FRGZU T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to EKKO_EKPO_EKET_N OPEN
+ 
+comment
+adding USD value to PO
+
+OPEN Release_Strategy
+delete field R_S OK
+define field R_S computed substr(Release_Strategy,1,2)
+extract fields R_S Release_Codes to Release_Strategy_A 
+
+OPEN Release_Strategy_A
+index on R_S to GDE
+OPEN EKKO_EKPO_EKET_N
+define relation EKKO_FRGSX with Release_Strategy_A index GDE
+
+extract fields VBAK_ERDAT EKPO_MTART EKPO_WERKS PO_Series SO EKKO_EKGRP SO_TYPE EKPO_MTART SOLI EKET_EBELN EKET_EBELP EKET_WEMNG EKET_BANFN EKET_J_3AUANR EKET_J_3AUPOS EKET_J_3ANETW USD_Value EKPO_MATNR EKPO_MENGE EKKO_AEDAT EKKO_ERNAM EKKO_LIFNR LFA1_NAME1 EKKO_WAERS EKKO_FRGSX EKKO_FRGKE EKKO_FRGZU Release_Strategy_A.Release_Codes T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to EKKO_EKPO_EKET_O
+
+OPEN Job_roll
+delete field Name OK
+define field Name computed substr(User_Name,1,12)
+extract fields Name Job_roll to job_roll_A 
+
+OPEN Job_roll
+index on Name to YLK
+OPEN EKKO_EKPO_EKET_O
+define relation EKKO_ERNAM with Job_roll index YLK
+
+extract record VBAK_ERDAT EKPO_MTART Job_roll.Job_roll EKPO_WERKS PO_Series SO EKKO_EKGRP SO_TYPE EKPO_MTART SOLI EKET_EBELN EKET_EBELP EKET_WEMNG EKET_BANFN EKET_J_3AUANR EKET_J_3AUPOS EKET_J_3ANETW USD_Value EKPO_MATNR EKPO_MENGE EKKO_AEDAT EKKO_ERNAM EKKO_LIFNR LFA1_NAME1 EKKO_WAERS EKKO_FRGSX EKKO_FRGKE EKKO_FRGZU Release_Codes T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to EKKO_EKPO_EKET_P OPEN 
+
+comment 
+adding release code to PO 
+  
+extract record if SO_TYPE <> "LIABILITY" to Dummy_SO OPEN 
+extract record if SO_TYPE <> "DUMMY" to Dummy_SO_A OPEN
+extract record if ZCUST_DEPT_DATA_ZCUST_DEPT_DESC <> "AMANTE" to Dummy_SO_B OPEN
+
+summarize on VBAK_ERDAT EKET_J_3AUANR SO EKET_J_3AUPOS EKET_EBELN EKET_EBELP EKPO_MENGE T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC subtotal EKET_WEMNG EKET_J_3ANETW USD_Value to Dummy_SO_C presort OPEN
+
+delete field first_digit OK
+define field first_digit computed substr(EKET_J_3AUANR,1,1)
+
+extract record if first_digit <> "2" to Dummy_SO_D OPEN
+extract record if first_digit <> "8" to Dummy_SO_E OPEN
+extract record if EKPO_MENGE > 0 to Dummy_SO_F OPEN 
+
+delete field Del_Value OK
+define field Del_Value computed USD_Value*EKET_WEMNG/EKPO_MENGE 
+extract record VBAK_ERDAT EKET_J_3AUANR SO EKET_J_3AUPOS EKET_EBELN EKET_EBELP EKPO_MENGE EKET_WEMNG Del_Value USD_Value T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to Dummy_SO_G OPEN 
+
+summarize on VBAK_ERDAT EKET_J_3AUANR SO T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC subtotal Del_Value USD_Value to Dummy_SO_H presort 
+
+open VBAK_VBAP_VBKD_B
+summarize on VBAP_VBELN subtotal VBAP_NETWR to VBAK_VBAP_VBKD_D presort 
+ 
+OPEN VBAK_VBAP_VBKD_D
+index on VBAP_VBELN to HJK
+OPEN Dummy_SO_H
+define relation SO with VBAK_VBAP_VBKD_D index HJK
+extract fields VBAK_ERDAT SO VBAK_VBAP_VBKD_D.VBAP_NETWR Del_Value USD_Value T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to Dummy_SO_I OPEN 
+
+delete field Excess_Value OK
+define field Excess_Value computed USD_Value - VBAP_NETWR
+extract record if Excess_Value > 0 to Dummy_SO_J OPEN 
+
+OPEN Dummy_SO_J
+delete field Excess_Value_A OK
+define field Excess_Value_A computed Del_Value - VBAP_NETWR
+extract record VBAK_ERDAT SO VBAP_NETWR Del_Value USD_Value Excess_Value Excess_Value_A T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to Dummy_SO_K 
+
+OPEN VBAK_VBAP_VBKD
+summarize on VBAP_VBELN VBAP_ABGRU to Rejection_reason presort OPEN 
+extract record if VBAP_ABGRU <> "" to Rejection_reason_A OPEN 
+summarize on VBAP_VBELN to Rejection_reason_B presort OPEN
+
+OPEN Dummy_SO_K
+index on SO to DFG
+OPEN Rejection_reason_B
+define relation VBAP_VBELN with Dummy_SO_K index DFG
+extract record VBAP_VBELN count Dummy_SO_K.USD_Value to Rejection_reason_C OPEN
+ 
+extract record if USD_Value <> 0 to Rejection_reason_D OPEN
+ 
+extract record if COUNT = 1 to Rejection_reason_E
+ 
+OPEN Rejection_reason_A 
+index on VBAP_VBELN to BGR
+OPEN Rejection_reason_E
+define relation VBAP_VBELN with Rejection_reason_A index BGR
+extract fields VBAP_VBELN COUNT Rejection_reason_A.VBAP_ABGRU to Rejection_reason_F 
+
+
+
+
+
+
+
+
+
+  
