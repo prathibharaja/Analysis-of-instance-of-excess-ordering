@@ -1,0 +1,66 @@
+OPEN R_S
+delete field SO OK
+define field SO computed substr(VBAP_VBELN,1,10)
+Extract fields SO VBAP_ABGRU Rejection_reason to R_S_A OPEN 
+
+index SO to HER
+OPEN Dummy_SO_K
+define relation SO with R_S_A index HER
+extract fields VBAK_ERDAT SO R_S_A.VBAP_ABGRU R_S_A.Rejection_reason VBAP_NETWR Del_Value USD_Value Excess_Value Excess_Value_A T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to Dummy_SO_L OPEN 
+
+COMMENT 
+Adding rejection reason to SO
+
+Extract record if VBAP_ABGRU <> "72" to Dummy_SO_LA OPEN 
+Extract record if VBAP_ABGRU <> "92" to Dummy_SO_LB OPEN 
+Extract record if VBAP_ABGRU <> "97" to Dummy_SO_LC OPEN 
+Extract record if VBAP_ABGRU <> "99" to Dummy_SO_LD OPEN
+Extract record if VBAP_ABGRU <> "87" to Dummy_SO_LE OPEN
+Extract record if VBAP_ABGRU <> "TS" to Dummy_SO_LG OPEN
+Extract record if VBAP_ABGRU <> "78" to Dummy_SO_LH OPEN
+Extract record if VBAP_ABGRU <> "82" to Dummy_SO_LI OPEN
+extract record if SO <> "1000266585" to Dummy_SO_LJ OPEN 
+extract record if SO <> "1000300039" to Dummy_SO_LK OPEN
+
+COMMENT
+Filtering rejection reasons
+ 
+OPEN Dummy_SO_LK
+
+DELETE FIELD C_Year OK
+DEFINE FIELD C_Year COMPUTED YEAR(VBAK_ERDAT)
+
+extract fields C_Year VBAK_ERDAT SO VBAP_ABGRU Rejection_reason VBAP_NETWR Del_Value USD_Value Excess_Value Excess_Value_A T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC to Dummy_SO_LL OPEN
+
+extract record if C_Year < 2020 to Dummy_SO_LM 
+
+COMMENT
+Filtering by SO creation date
+
+OPEN Dummy_SO_LM PRIMARY
+OPEN EKKO_EKPO_EKET_P SECONDARY
+JOIN PKEY SO FIELDS ALL SKEY SO WITH ALL MANY TO EKKO_EKPO_EKET_Q OPEN PRESORT SECSORT
+summarize on EKET_EBELN EKKO_WAERS LFA1_NAME1 EKET_EBELP SO EKET_J_3AUPOS T151T_KTEXT ZCUST_DEPT_DATA_ZCUST_DEPT_DESC EKPO_MTART Job_roll EKPO_WERKS SO_TYPE PO_Series SO_TYPE EKET_BANFN EKPO_MATNR EKPO_MENGE EKKO_AEDAT EKKO_ERNAM EKKO_LIFNR EKKO_FRGSX EKKO_FRGKE EKKO_FRGZU Release_Codes Job_roll subtotal EKET_WEMNG EKET_J_3ANETW USD_Value2 to EKKO_EKPO_EKET_R presort  
+
+COMMENT 
+Adding PO values to SO
+
+OPEN EKKO_EKPO_EKET_R
+summarize on SO EKPO_MTART subtotal USD_Value2 to AAA_MaterialType presort 
+
+OPEN EKKO_EKPO_EKET_R
+summarize on SO Job_roll subtotal USD_Value2 to AAA_JobRoll presort 
+
+OPEN EKKO_EKPO_EKET_R 
+summarize on SO Release_Codes subtotal USD_Value2 to AAA_ReleaseCodes presort 
+
+OPEN EKKO_EKPO_EKET_R
+extract record if EKET_BANFN = "" to AAA_NoPR OPEN 
+summarize on SO subtotal USD_Value2 to AAA_NOPR_A presort 
+
+OPEN EKKO_EKPO_EKET_R
+extract record if EKET_BANFN <> "" to AAA_PR OPEN 
+summarize on SO subtotal USD_Value2 to AAA_PR_A presort
+
+COMMENT
+Making different types of reports
